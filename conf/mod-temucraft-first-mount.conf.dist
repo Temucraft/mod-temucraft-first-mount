@@ -1,0 +1,31 @@
+[worldserver]
+
+########################################
+# mod-temucraft-first-mount
+########################################
+#
+#    Temucraft.FirstMount.Enable
+#        Description: Take the borrowed mount away when its quest is abandoned or turned in.
+#        Default:     1
+
+Temucraft.FirstMount.Enable = 1
+
+#
+#    Temucraft.FirstMount.QuestFirst
+#    Temucraft.FirstMount.SpellFirst
+#    Temucraft.FirstMount.Count
+#        Description: The first quest ID (@QuestFirst in the SQL), the first borrowed mount spell, and how many there
+#                     are (one per race). Change them only if you changed them in the SQL and the DBCs.
+#        Default:     602110, 95330, 10
+
+Temucraft.FirstMount.QuestFirst = 602110
+Temucraft.FirstMount.SpellFirst = 95330
+Temucraft.FirstMount.Count = 10
+
+#    Temucraft.FirstMount.SlowQuest
+#    Temucraft.FirstMount.SlowSpellFirst
+#        Description: "An Old Ride": the quest the starting zones' last NPC offers, and the first of the ten slow
+#                     mount spells it teaches (one per race, +30% speed, no riding skill). 0 = don't teach any.
+#        Default:     602130, 95340
+Temucraft.FirstMount.SlowQuest = 602130
+Temucraft.FirstMount.SlowSpellFirst = 95340
