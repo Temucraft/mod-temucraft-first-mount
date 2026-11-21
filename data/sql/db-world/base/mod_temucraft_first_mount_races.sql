@@ -9,6 +9,14 @@
 -- Dracthyr have no ground mount in our data, so this file adds two: the Blue Ground Drake (Alliance) and the Red Ground
 -- Drake (Horde), items 602160-602161 and spells 95350-95351 (server: spell_dbc below, client: client/ Spell.dbc).
 --
+-- Only races that exist on this server get a quest: a race needs at least one row in `playercreateinfo` (the table
+-- mod-worgoblin-high-elf's race modpaks fill for the races you build in; without it nobody can make a character of
+-- that race). Run this file again after you add or remove a race.
+--
+-- The ground drakes are optional: set @DracthyrDrakes to 0 below to leave them out (an earlier run's drakes are then
+-- removed, and the Dracthyr get their home race's mounts). Temucraft.FirstMount.DracthyrDrakes in the module's
+-- config does the same on a running server without touching the database (see the README).
+--
 -- Runs after mod_temucraft_first_mount.sql and mod_temucraft_first_mount_dbc.sql (file name order), it reads their
 -- quests and spells. The C++ script reads `temucraft_first_mount_race` for the borrowed mount and "An Old Ride".
 -- Re-runnable: every block deletes its own rows first.
@@ -21,6 +29,7 @@ SET @RidingSkillRank := 75;     -- only mounts that need this riding skill or le
 SET @QuestFirst      := 602110; -- the first classic race quest (@QuestFirst in mod_temucraft_first_mount.sql)
 SET @RaceQuestFirst  := 602140; -- the first quest of this file, one per race below
 SET @MaxChoices      := 6;
+SET @DracthyrDrakes  := 1;      -- 1 adds the Dracthyr ground drakes, 0 leaves them out
 
 -- Home index = the classic race whose quest is copied:
 -- 0 Human, 1 Orc, 2 Dwarf, 3 Night Elf, 4 Undead, 5 Tauren, 6 Gnome, 7 Troll, 8 Blood Elf, 9 Draenei
@@ -101,22 +110,26 @@ INSERT INTO `temucraft_first_mount_race` (`Race`, `Name`, `HomeIndex`, `Quest`, 
 (@HordeHaranir,       'Haranir (Horde)',     @HomeTroll,    @RaceQuestFirst + 19, @EmeraldRaptor,         @TurquoiseRaptor,       @VioletRaptor, 0);
 SET @RaceQuestLast := @RaceQuestFirst + 19;
 
+-- Races that are not set up on this server (no playercreateinfo rows) get nothing
+DELETE FROM `temucraft_first_mount_race` WHERE `Race` NOT IN (SELECT DISTINCT `race` FROM `playercreateinfo`);
+
 -- ------------------------------------------------------------------------------------------------------------------
 -- Nothing to change below this line
 -- ------------------------------------------------------------------------------------------------------------------
 
 -- The Dracthyr ground drakes: spells (copies of the borrowed Black Stallion, without its zone and quest limits,
--- spell_area only limits 95330-95339) and items (copies of the Black Stallion Bridle)
+-- spell_area only limits 95330-95339) and items (copies of the Black Stallion Bridle). Only added when
+-- @DracthyrDrakes is 1; the deletes always run, so 0 also removes them.
 DELETE FROM `spell_dbc` WHERE `ID` IN (@BlueDrakeSpell, @RedDrakeSpell);
 DROP TEMPORARY TABLE IF EXISTS `tmp_temucraft_drake_spell`;
 CREATE TEMPORARY TABLE `tmp_temucraft_drake_spell` SELECT * FROM `spell_dbc` WHERE `ID` = @DrakeTemplateSpell;
 UPDATE `tmp_temucraft_drake_spell` SET `ID` = @BlueDrakeSpell, `EffectMiscValue_1` = @BlueDrakeCreature, `SpellIconID` = @BlueDrakeIcon,
     `Name_Lang_enUS` = 'Blue Ground Drake', `Description_Lang_enUS` = 'Summons and dismisses a rideable Blue Ground Drake.',
     `AuraDescription_Lang_enUS` = 'Increases speed by 60%.';
-INSERT INTO `spell_dbc` SELECT * FROM `tmp_temucraft_drake_spell`;
+INSERT INTO `spell_dbc` SELECT * FROM `tmp_temucraft_drake_spell` WHERE @DracthyrDrakes = 1;
 UPDATE `tmp_temucraft_drake_spell` SET `ID` = @RedDrakeSpell, `EffectMiscValue_1` = @RedDrakeCreature, `SpellIconID` = @RedDrakeIcon,
     `Name_Lang_enUS` = 'Red Ground Drake', `Description_Lang_enUS` = 'Summons and dismisses a rideable Red Ground Drake.';
-INSERT INTO `spell_dbc` SELECT * FROM `tmp_temucraft_drake_spell`;
+INSERT INTO `spell_dbc` SELECT * FROM `tmp_temucraft_drake_spell` WHERE @DracthyrDrakes = 1;
 DROP TEMPORARY TABLE IF EXISTS `tmp_temucraft_drake_spell`;
 
 DELETE FROM `item_template` WHERE `entry` IN (@BlueDrakeItem, @RedDrakeItem);
@@ -124,9 +137,9 @@ DROP TEMPORARY TABLE IF EXISTS `tmp_temucraft_drake_item`;
 CREATE TEMPORARY TABLE `tmp_temucraft_drake_item` SELECT * FROM `item_template` WHERE `entry` = @DrakeTemplateItem;
 UPDATE `tmp_temucraft_drake_item` SET `entry` = @BlueDrakeItem, `name` = 'Reins of the Blue Ground Drake', `displayid` = @DrakeItemDisplay,
     `spellid_2` = @BlueDrakeSpell, `AllowableRace` = -1, `description` = 'A young drake that keeps to the ground. It carries Dracthyr gladly.';
-INSERT INTO `item_template` SELECT * FROM `tmp_temucraft_drake_item`;
+INSERT INTO `item_template` SELECT * FROM `tmp_temucraft_drake_item` WHERE @DracthyrDrakes = 1;
 UPDATE `tmp_temucraft_drake_item` SET `entry` = @RedDrakeItem, `name` = 'Reins of the Red Ground Drake', `spellid_2` = @RedDrakeSpell;
-INSERT INTO `item_template` SELECT * FROM `tmp_temucraft_drake_item`;
+INSERT INTO `item_template` SELECT * FROM `tmp_temucraft_drake_item` WHERE @DracthyrDrakes = 1;
 DROP TEMPORARY TABLE IF EXISTS `tmp_temucraft_drake_item`;
 
 -- The choices of each race: own mounts first, then the home race's choices; only mounts Apprentice Riding can ride

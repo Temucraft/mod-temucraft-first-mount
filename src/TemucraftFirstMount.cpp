@@ -9,9 +9,15 @@
  *
  * The custom races (mod_temucraft_first_mount_races.sql) are read from `temucraft_first_mount_race` at startup:
  * their quests also drop the borrowed mount, and "An Old Ride" teaches them the slow mount of their home race.
+ *
+ * The Dracthyr ground drakes are optional: with Temucraft.FirstMount.DracthyrDrakes = 0, a drake picked as a quest
+ * reward is swapped for the first mount of the home race's quest (the SQL can also leave them out, @DracthyrDrakes).
  */
 
 #include "Config.h"
+#include "Item.h"
+#include "ObjectMgr.h"
+#include "Tokenize.h"
 #include "DatabaseEnv.h"
 #include "Log.h"
 #include "Player.h"
@@ -30,6 +36,8 @@ namespace
         uint32 count = 10;
         uint32 slowQuest = 602130;
         uint32 slowSpellFirst = 95340;
+        bool dracthyrDrakes = true;
+        std::unordered_set<uint32> drakeItems = { 602160, 602161 };
     } settings;
 
     // custom race -> home index (the classic race whose mounts it uses, same order as the borrowed mounts)
@@ -62,35 +70,56 @@ namespace
         LOG_INFO("module", "mod-temucraft-first-mount: loaded {} custom races", raceHome.size());
     }
 
+    // the classic race index whose quest a race copies (custom races from the table, others by faction)
+    uint32 HomeIndex(Player* player)
+    {
+        switch (player->getRace())
+        {
+            case RACE_HUMAN:         return 0;
+            case RACE_ORC:           return 1;
+            case RACE_DWARF:         return 2;
+            case RACE_NIGHTELF:      return 3;
+            case RACE_UNDEAD_PLAYER: return 4;
+            case RACE_TAUREN:        return 5;
+            case RACE_GNOME:         return 6;
+            case RACE_TROLL:         return 7;
+            case RACE_BLOODELF:      return 8;
+            case RACE_DRAENEI:       return 9;
+            default:
+            {
+                auto itr = raceHome.find(player->getRace());
+                if (itr != raceHome.end())
+                    return itr->second;
+                return player->GetTeamId() == TEAM_ALLIANCE ? 0 : 1;
+            }
+        }
+    }
+
+    // DracthyrDrakes = 0: a drake quest reward becomes the first mount of the home race's quest
+    void SwapDrake(Player* player, Item* item)
+    {
+        if (!settings.enable || settings.dracthyrDrakes || !item || !settings.drakeItems.count(item->GetEntry()))
+            return;
+        Quest const* home = sObjectMgr->GetQuestTemplate(settings.questFirst + HomeIndex(player));
+        uint32 replacement = 0;
+        for (uint32 i = 0; home && i < QUEST_REWARD_CHOICES_COUNT && !replacement; ++i)
+            if (home->RewardChoiceItemId[i] && !settings.drakeItems.count(home->RewardChoiceItemId[i]))
+                replacement = home->RewardChoiceItemId[i];
+        if (!replacement || !sObjectMgr->GetItemTemplate(replacement))
+            return;
+        player->DestroyItem(item->GetBagSlot(), item->GetSlot(), true);
+        ItemPosCountVec dest;
+        if (player->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, replacement, 1) == EQUIP_ERR_OK)
+            if (Item* added = player->StoreNewItem(dest, replacement, true))
+                player->SendNewItem(added, 1, true, false);
+    }
+
     // "An Old Ride": teach the slow mount that matches the race (same order as the borrowed mounts)
     void LearnSlowMount(Player* player, uint32 questId)
     {
         if (!settings.enable || !settings.slowQuest || questId != settings.slowQuest)
             return;
-        int32 index;
-        switch (player->getRace())
-        {
-            case RACE_HUMAN:         index = 0; break;
-            case RACE_ORC:           index = 1; break;
-            case RACE_DWARF:         index = 2; break;
-            case RACE_NIGHTELF:      index = 3; break;
-            case RACE_UNDEAD_PLAYER: index = 4; break;
-            case RACE_TAUREN:        index = 5; break;
-            case RACE_GNOME:         index = 6; break;
-            case RACE_TROLL:         index = 7; break;
-            case RACE_BLOODELF:      index = 8; break;
-            case RACE_DRAENEI:       index = 9; break;
-            default:
-            {
-                // custom races: the home race's mount; races not in the table: horse or wolf
-                auto itr = raceHome.find(player->getRace());
-                if (itr != raceHome.end())
-                    index = itr->second;
-                else
-                    index = player->GetTeamId() == TEAM_ALLIANCE ? 0 : 1;
-                break;
-            }
-        }
+        uint32 index = HomeIndex(player);
         uint32 spell = settings.slowSpellFirst + index;
         if (!player->HasSpell(spell))
             player->learnSpell(spell);
@@ -115,7 +144,12 @@ class TemucraftFirstMount_Player : public PlayerScript
 {
 public:
     TemucraftFirstMount_Player() : PlayerScript("TemucraftFirstMount_Player",
-        { PLAYERHOOK_ON_QUEST_ABANDON, PLAYERHOOK_ON_QUEST_COMPUTE_EXP }) { }
+        { PLAYERHOOK_ON_QUEST_ABANDON, PLAYERHOOK_ON_QUEST_COMPUTE_EXP, PLAYERHOOK_ON_QUEST_REWARD_ITEM }) { }
+
+    void OnPlayerQuestRewardItem(Player* player, Item* item, uint32 /*count*/) override
+    {
+        SwapDrake(player, item);
+    }
 
     void OnPlayerQuestAbandon(Player* player, uint32 questId) override
     {
@@ -143,6 +177,12 @@ public:
         settings.count = sConfigMgr->GetOption<uint32>("Temucraft.FirstMount.Count", 10);
         settings.slowQuest = sConfigMgr->GetOption<uint32>("Temucraft.FirstMount.SlowQuest", 602130);
         settings.slowSpellFirst = sConfigMgr->GetOption<uint32>("Temucraft.FirstMount.SlowSpellFirst", 95340);
+        settings.dracthyrDrakes = sConfigMgr->GetOption<bool>("Temucraft.FirstMount.DracthyrDrakes", true);
+        settings.drakeItems.clear();
+        std::string drakes = sConfigMgr->GetOption<std::string>("Temucraft.FirstMount.DracthyrDrakeItems", "602160 602161");
+        for (std::string_view id : Acore::Tokenize(drakes, ' ', false))
+            if (Optional<uint32> entry = Acore::StringTo<uint32>(id))
+                settings.drakeItems.insert(*entry);
 
         // `.reload config` also reloads the race table; at server start it is read in OnStartup (world DB is ready)
         if (reload)

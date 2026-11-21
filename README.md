@@ -59,9 +59,17 @@ spells 95350-95351 (+60%, Apprentice Riding, the Blue Drake and Red Drake models
 602160-602161. They live here and not in mod-worgoblin-high-elf because they only exist for this quest and this
 module already carries the Spell.dbc patch and `spell_dbc` rows for its mounts.
 
-The race list is the table `temucraft_first_mount_race` (race, home race, quest, own mounts). The script reads it at
-startup: a custom race's quest also takes the borrowed mount away, and "An Old Ride" teaches the slow mount of the
-home race. A race added to mod-worgoblin-high-elf later: add a row there and run the file again.
+The drakes are optional. `Temucraft.FirstMount.DracthyrDrakes = 0` in the config swaps a drake picked as a reward
+for the first mount of the home race's quest, with no database change. To take them out of the database too, set
+`@DracthyrDrakes := 0` at the top of `mod_temucraft_first_mount_races.sql` and run it again (it then removes the
+drake items and spells, and the Dracthyr are offered their home race's mounts).
+
+The race list is the table `temucraft_first_mount_race` (race, home race, quest, own mounts). Only races that are set
+up on this server get a quest: a race needs at least one row in `playercreateinfo` (the race modpaks of
+mod-worgoblin-high-elf add them for the races you build in), so races you left out get nothing. Run the file again
+after you add or remove a race. The script reads the table at startup: a custom race's quest also takes the borrowed
+mount away, and "An Old Ride" teaches the slow mount of the home race. A race added to mod-worgoblin-high-elf later:
+add a row there and run the file again.
 
 ## An Old Ride (slow mount, free)
 

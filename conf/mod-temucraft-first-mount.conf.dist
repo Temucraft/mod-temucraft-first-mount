@@ -29,3 +29,21 @@ Temucraft.FirstMount.Count = 10
 #        Default:     602130, 95340
 Temucraft.FirstMount.SlowQuest = 602130
 Temucraft.FirstMount.SlowSpellFirst = 95340
+
+#
+#    Temucraft.FirstMount.DracthyrDrakes
+#        Description: The Dracthyr ground drakes (Blue and Red Ground Drake) as first mount rewards.
+#                     0 - a drake picked as a quest reward is swapped for the first mount of the home race's quest.
+#                         To take them out of the database too, set @DracthyrDrakes to 0 at the top of
+#                         data/sql/db-world/base/mod_temucraft_first_mount_races.sql and run it again.
+#                     1 - on
+#        Default:     1
+
+Temucraft.FirstMount.DracthyrDrakes = 1
+
+#
+#    Temucraft.FirstMount.DracthyrDrakeItems
+#        Description: The drake reins items (space separated), the ones mod_temucraft_first_mount_races.sql adds.
+#        Default:     "602160 602161"
+
+Temucraft.FirstMount.DracthyrDrakeItems = "602160 602161"
