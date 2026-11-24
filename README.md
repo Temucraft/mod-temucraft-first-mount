@@ -144,8 +144,8 @@ subclass 0; slow mounts 602180-602189: class 15, subclass 5; both with the displ
 (2411, 1132, 5864, 8629, 13331, 15277, 8595, 8588, 28927, 28481). Drakes 602160-602161: class 15, subclass 5,
 display 56307. Keep them when patch-W is built again.
 
-The borrowed mount spells' text in the client's `Spell.dbc` (patch-T) still says "only nearby". The text to put in
-(description, 95330-95339 in race order): "Summons a borrowed <mount>. Only in <zones>, while you are bringing it
-back to the stables." with the zones Elwynn Forest; Durotar and Orgrimmar; Dun Morogh; Teldrassil and Darnassus;
-Tirisfal Glades; Mulgore; Dun Morogh; Durotar; Eversong Woods and Silvermoon City; Azuremyst Isle and the Exodar.
-The items' own description already names the zones.
+The borrowed mount spells' text in the client's `Spell.dbc` (patch-T, and `client/patch-F.MPQ/` here) names the
+zones since 2026-11-24 (description, 95330-95339 in race order): "Summons a borrowed <mount>. Only in <zones>, while
+you are bringing it back to the stables." with the zones Elwynn Forest; Durotar and Orgrimmar; Dun Morogh; Teldrassil
+and Darnassus; Tirisfal Glades; Mulgore; Dun Morogh; Durotar; Eversong Woods and Silvermoon City; Azuremyst Isle and
+the Exodar. `mod_temucraft_first_mount_dbc.sql` has the same text. The items' own description also names the zones.
