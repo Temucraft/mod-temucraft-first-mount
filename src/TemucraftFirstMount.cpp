@@ -5,7 +5,13 @@
  *   - abandoning the quest: AzerothCore takes the quest item back, but a borrowed mount you're sitting on stays;
  *   - turning the quest in: the same.
  * Leaving the quest's zones already drops the mount (spell_area).
- * It also teaches the slow mount of "An Old Ride" (quest 602130), the one that matches the player's race.
+ * It also gives the slow mount of "An Old Ride" (quest 602130), the one that matches the player's race, as an item
+ * that summons it (items 602180-602189). Nobody keeps a borrowed or slow mount as a learned spell: a character who
+ * learned one from an older version loses the spell at login and gets the item instead.
+ *
+ * Each first mount quest is only for its own race: the classic quests for their race, the copies for the custom
+ * races for that race. The core turns a race mask with no playable race in it into "every race", which would show
+ * every copy to everyone, so the script hides a quest from the wrong races (its level is raised out of reach).
  *
  * The custom races (mod_temucraft_first_mount_races.sql) are read from `temucraft_first_mount_race` at startup:
  * their quests also drop the borrowed mount, and "An Old Ride" teaches them the slow mount of their home race.
@@ -36,19 +42,22 @@ namespace
         uint32 count = 10;
         uint32 slowQuest = 602130;
         uint32 slowSpellFirst = 95340;
+        uint32 slowItemFirst = 602180;
         bool dracthyrDrakes = true;
         std::unordered_set<uint32> drakeItems = { 602160, 602161 };
     } settings;
 
     // custom race -> home index (the classic race whose mounts it uses, same order as the borrowed mounts)
     std::unordered_map<uint8, uint32> raceHome;
-    // the quests of the custom races
+    // the quests of the custom races, and the race each one is for
     std::unordered_set<uint32> raceQuests;
+    std::unordered_map<uint32, uint8> questRace;
 
     void LoadRaceTable()
     {
         raceHome.clear();
         raceQuests.clear();
+        questRace.clear();
 
         QueryResult result = WorldDatabase.Query("SELECT `Race`, `HomeIndex`, `Quest` FROM `temucraft_first_mount_race`");
         if (!result)
@@ -65,6 +74,7 @@ namespace
                 continue;
             raceHome[fields[0].Get<uint8>()] = home;
             raceQuests.insert(fields[2].Get<uint32>());
+            questRace[fields[2].Get<uint32>()] = fields[0].Get<uint8>();
         } while (result->NextRow());
 
         LOG_INFO("module", "mod-temucraft-first-mount: loaded {} custom races", raceHome.size());
@@ -114,15 +124,61 @@ namespace
                 player->SendNewItem(added, 1, true, false);
     }
 
-    // "An Old Ride": teach the slow mount that matches the race (same order as the borrowed mounts)
+    // "An Old Ride": give the item of the slow mount that matches the race (same order as the borrowed mounts)
+    void GiveSlowMount(Player* player)
+    {
+        if (!settings.slowItemFirst)
+            return;
+        uint32 item = settings.slowItemFirst + HomeIndex(player);
+        if (!sObjectMgr->GetItemTemplate(item) || player->HasItemCount(item, 1, true))
+            return;
+        ItemPosCountVec dest;
+        if (player->CanStoreNewItem(NULL_BAG, NULL_SLOT, dest, item, 1) == EQUIP_ERR_OK)
+        {
+            if (Item* added = player->StoreNewItem(dest, item, true))
+                player->SendNewItem(added, 1, true, false);
+        }
+        else
+            player->SendItemRetrievalMail(item, 1);   // bags full: it comes by mail
+    }
+
     void LearnSlowMount(Player* player, uint32 questId)
     {
         if (!settings.enable || !settings.slowQuest || questId != settings.slowQuest)
             return;
-        uint32 index = HomeIndex(player);
-        uint32 spell = settings.slowSpellFirst + index;
-        if (!player->HasSpell(spell))
-            player->learnSpell(spell);
+        GiveSlowMount(player);
+    }
+
+    // a borrowed or slow mount learned as a spell (older versions taught the slow one): take the spell away, and
+    // give the slow mount's item instead
+    void ForgetMountSpells(Player* player)
+    {
+        if (!settings.enable)
+            return;
+        bool hadSlow = false;
+        for (uint32 i = 0; i < settings.count; ++i)
+        {
+            if (player->HasSpell(settings.spellFirst + i))
+                player->removeSpell(settings.spellFirst + i, SPEC_MASK_ALL, false);
+            if (settings.slowSpellFirst && player->HasSpell(settings.slowSpellFirst + i))
+            {
+                player->removeSpell(settings.slowSpellFirst + i, SPEC_MASK_ALL, false);
+                hadSlow = true;
+            }
+        }
+        if (hadSlow)
+            GiveSlowMount(player);
+    }
+
+    // the race a first mount quest is for (0 = not one of them)
+    uint8 QuestRace(uint32 questId)
+    {
+        static uint8 const classic[10] = { RACE_HUMAN, RACE_ORC, RACE_DWARF, RACE_NIGHTELF, RACE_UNDEAD_PLAYER,
+            RACE_TAUREN, RACE_GNOME, RACE_TROLL, RACE_BLOODELF, RACE_DRAENEI };
+        if (questId >= settings.questFirst && questId < settings.questFirst + settings.count && questId - settings.questFirst < 10)
+            return classic[questId - settings.questFirst];
+        auto itr = questRace.find(questId);
+        return itr != questRace.end() ? itr->second : 0;
     }
 
     bool IsBorrowedMountQuest(uint32 questId)
@@ -144,7 +200,23 @@ class TemucraftFirstMount_Player : public PlayerScript
 {
 public:
     TemucraftFirstMount_Player() : PlayerScript("TemucraftFirstMount_Player",
-        { PLAYERHOOK_ON_QUEST_ABANDON, PLAYERHOOK_ON_QUEST_COMPUTE_EXP, PLAYERHOOK_ON_QUEST_REWARD_ITEM }) { }
+        { PLAYERHOOK_ON_QUEST_ABANDON, PLAYERHOOK_ON_QUEST_COMPUTE_EXP, PLAYERHOOK_ON_QUEST_REWARD_ITEM,
+          PLAYERHOOK_ON_LOGIN, PLAYERHOOK_ON_GET_QUEST_MIN_LEVEL }) { }
+
+    void OnPlayerLogin(Player* player) override
+    {
+        ForgetMountSpells(player);
+    }
+
+    // a first mount quest of another race: out of reach, so it is neither shown nor taken
+    void OnPlayerGetQuestMinLevel(Player const* player, Quest const* quest, uint32& minLevel) override
+    {
+        if (!settings.enable)
+            return;
+        if (uint8 race = QuestRace(quest->GetQuestId()))
+            if (player->getRace() != race)
+                minLevel = DEFAULT_MAX_LEVEL + 100;
+    }
 
     void OnPlayerQuestRewardItem(Player* player, Item* item, uint32 /*count*/) override
     {
@@ -177,6 +249,7 @@ public:
         settings.count = sConfigMgr->GetOption<uint32>("Temucraft.FirstMount.Count", 10);
         settings.slowQuest = sConfigMgr->GetOption<uint32>("Temucraft.FirstMount.SlowQuest", 602130);
         settings.slowSpellFirst = sConfigMgr->GetOption<uint32>("Temucraft.FirstMount.SlowSpellFirst", 95340);
+        settings.slowItemFirst = sConfigMgr->GetOption<uint32>("Temucraft.FirstMount.SlowItemFirst", 602180);
         settings.dracthyrDrakes = sConfigMgr->GetOption<bool>("Temucraft.FirstMount.DracthyrDrakes", true);
         settings.drakeItems.clear();
         std::string drakes = sConfigMgr->GetOption<std::string>("Temucraft.FirstMount.DracthyrDrakeItems", "602160 602161");

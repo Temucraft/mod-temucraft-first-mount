@@ -1,8 +1,10 @@
 -- mod-temucraft-first-mount: "An Old Ride". The NPC who sends you out of your starting zone offers a quest that
--- teaches a slow mount, free and with no riding skill: +30% speed (a trained mount is +60%). The mount matches
--- your race (the script picks it: spells 95340-95349, the borrowed mounts' looks). Re-runnable.
+-- gives a slow mount, free and with no riding skill: +30% speed (a trained mount is +60%). The mount matches
+-- your race (the script picks it): an item that summons it on use (items 602180-602189, spells 95340-95349, the
+-- borrowed mounts' looks). Nothing is learned. Re-runnable.
 SET @SlowQuest := 602130;
 SET @SlowSpellFirst := 95340;
+SET @SlowItemFirst := 602180;
 -- who offers it (and takes it back): one per starting zone
 SET @ExitHuman := 197;       -- Marshal McBride, Northshire
 SET @ExitOrcTroll := 6786;   -- Ukor, Valley of Trials
@@ -20,7 +22,7 @@ DELETE FROM `creature_queststarter` WHERE `quest` = @SlowQuest;
 DELETE FROM `creature_questender` WHERE `quest` = @SlowQuest;
 INSERT INTO `quest_template` (`ID`, `QuestType`, `QuestLevel`, `MinLevel`, `AllowableRaces`, `LogTitle`, `LogDescription`, `QuestDescription`, `QuestCompletionLog`, `VerifiedBuild`) VALUES
 (@SlowQuest, 2, 1, 1, 0, 'An Old Ride',
-    'Accept the old mount and learn to ride it.',
+    'Accept the old mount.',
     'The road ahead is long, $N, and your legs are young. There''s an old mount in the pens nobody rides anymore. It''s slow and stubborn, but it beats walking, and you don''t need any training to sit on it.$B$BTake it. It''s yours, free of charge.',
     'Return when you''re ready to ride.', 0);
 INSERT INTO `quest_offer_reward` (`ID`, `RewardText`) VALUES
@@ -44,3 +46,11 @@ UPDATE `tmp_slow_mount` SET `ID` = `ID` - 95330 + @SlowSpellFirst, `EffectBasePo
 INSERT INTO `spell_dbc` SELECT * FROM `tmp_slow_mount`;
 DROP TEMPORARY TABLE IF EXISTS `tmp_slow_mount`;
 DELETE FROM `spell_area` WHERE `spell` BETWEEN @SlowSpellFirst AND @SlowSpellFirst + 9;
+
+-- the slow mount items: one per race, same order as the borrowed mounts (602120-602129), summon on use
+DELETE FROM `item_template` WHERE `entry` BETWEEN @SlowItemFirst AND @SlowItemFirst + 9;
+INSERT INTO `item_template` (`entry`, `class`, `subclass`, `SoundOverrideSubclass`, `name`, `displayid`, `Quality`, `ItemLevel`, `maxcount`, `stackable`, `spellid_1`, `spelltrigger_1`, `spellcharges_1`, `spellcooldown_1`, `bonding`, `description`, `Material`, `VerifiedBuild`)
+SELECT `entry` - 602120 + @SlowItemFirst, 15, 5, -1, REPLACE(`name`, 'Borrowed ', 'Old '), `displayid`, 1, 1, 1, 1,
+    `spellid_1` - 95330 + @SlowSpellFirst, 0, 0, -1, 1,
+    'Slower than a trained mount, but faster than walking. No riding skill needed.', -1, 0
+FROM `item_template` WHERE `entry` BETWEEN 602120 AND 602129;

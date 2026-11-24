@@ -24,11 +24,15 @@ Temucraft.FirstMount.Count = 10
 
 #    Temucraft.FirstMount.SlowQuest
 #    Temucraft.FirstMount.SlowSpellFirst
-#        Description: "An Old Ride": the quest the starting zones' last NPC offers, and the first of the ten slow
-#                     mount spells it teaches (one per race, +30% speed, no riding skill). 0 = don't teach any.
-#        Default:     602130, 95340
+#    Temucraft.FirstMount.SlowItemFirst
+#        Description: "An Old Ride": the quest the starting zones' last NPC offers, the first of the ten slow mount
+#                     spells (one per race, +30% speed, no riding skill) and the first of the ten items that summon
+#                     them. The quest gives the item of your race; nobody keeps a slow mount as a learned spell
+#                     (a character who learned one before gets the item at login). 0 = don't give any.
+#        Default:     602130, 95340, 602180
 Temucraft.FirstMount.SlowQuest = 602130
 Temucraft.FirstMount.SlowSpellFirst = 95340
+Temucraft.FirstMount.SlowItemFirst = 602180
 
 #
 #    Temucraft.FirstMount.DracthyrDrakes

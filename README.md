@@ -5,7 +5,12 @@ Your first mount, as a quest. Each race's riding trainer hands you a **borrowed 
 The borrowed mount is a quest item:
 - it's given when you accept the quest and taken back when you turn it in or abandon it;
 - it can be ridden as often as you like, but only while the quest is in your log and only in the quest's zones;
-- leaving those zones, abandoning or finishing the quest takes you off it.
+- leaving those zones, abandoning or finishing the quest takes you off it;
+- it summons the mount when used: nothing is learned. Its tooltip names the zones where it works.
+
+Each quest is only for its own race (the copies for the custom races only for that race). The script hides a quest
+from every other race, also when the core would open it to everyone (it turns a race mask with no playable race in
+it into "all races").
 
 Riding (the quest's mounts and the trainer's Apprentice Riding) is lowered to level 5, changeable in the SQL.
 
@@ -68,15 +73,17 @@ The race list is the table `temucraft_first_mount_race` (race, home race, quest,
 up on this server get a quest: a race needs at least one row in `playercreateinfo` (the race modpaks of
 mod-worgoblin-high-elf add them for the races you build in), so races you left out get nothing. Run the file again
 after you add or remove a race. The script reads the table at startup: a custom race's quest also takes the borrowed
-mount away, and "An Old Ride" teaches the slow mount of the home race. A race added to mod-worgoblin-high-elf later:
+mount away, and "An Old Ride" gives the slow mount of the home race. A race added to mod-worgoblin-high-elf later:
 add a row there and run the file again.
 
 ## An Old Ride (slow mount, free)
 
 The NPC who sends you out of each starting zone (Marshal McBride, Ukor, Sten Stoutarm, Porthannius, Deathguard Simmer,
 Chief Hawkwind, Lanthan Perilon, Proenitus) offers **An Old Ride** (quest 602130): turn it in right away and you
-learn an old mount of your race's kind. It's free, needs no riding skill and runs at +30% speed (a trained mount is
-+60%). Spells 95340-95349, in `Spell.dbc` (client) and `mod_temucraft_first_mount_slow.sql` (server). Custom races get the
+get an old mount of your race's kind, as an item that summons it (items 602180-602189). It's free, needs no riding
+skill and runs at +30% speed (a trained mount is +60%). Spells 95340-95349, in `Spell.dbc` (client) and
+`mod_temucraft_first_mount_slow.sql` (server). Older versions taught the spell: a character who still has it loses
+it at login and gets the item instead (by mail if the bags are full). Custom races get the
 slow mount of their home race (see Custom races below); other races get the horse (Alliance) or the wolf (Horde).
 
 ## Install
@@ -106,6 +113,8 @@ Everything is in the `SET` blocks at the top of `data/sql/db-world/base/mod_temu
 | world | `quest_template`, `quest_template_addon` | 602110-602119 |
 | world | `creature_queststarter`, `creature_questender` | the riding trainers and mount vendors above (they get the quest giver flag) |
 | world | `item_template` | 602120-602129 (borrowed mounts); the mounts on offer get `RequiredLevel` = `@RidingLevel` |
+| world | `item_template` | 602180-602189 (the slow mounts of An Old Ride) |
+| client | `Item.dbc` | 602120-602129, 602160-602161, 602180-602189 (so the bag shows their icon) |
 | world | `trainer_spell` | Apprentice Riding (33388): price and level |
 | world | `spell_area` | 95330-95339: only in the quest's zones, only with the quest |
 | world | `quest_template`, `quest_template_addon`, `creature_queststarter`, `creature_questender`, `spell_area` | 602140-602159 (custom races, copies of the home race's quest) |
@@ -126,3 +135,17 @@ Everything is in the `SET` blocks at the top of `data/sql/db-world/base/mod_temu
 This module doesn't need any other module, nor any other Temucraft module.
 
 Part of the Temucraft modules for AzerothCore 3.3.5a.
+
+## Client rows (Temucraft release)
+
+In the Temucraft release the items' `Item.dbc` rows are in `patch-W.MPQ` (the last patch with `Item.dbc`), added on
+2026-11-24: id, class, subclass, sound -1, material -1, display, 0, 0. Borrowed mounts 602120-602129: class 12,
+subclass 0; slow mounts 602180-602189: class 15, subclass 5; both with the display of the race's first mount on offer
+(2411, 1132, 5864, 8629, 13331, 15277, 8595, 8588, 28927, 28481). Drakes 602160-602161: class 15, subclass 5,
+display 56307. Keep them when patch-W is built again.
+
+The borrowed mount spells' text in the client's `Spell.dbc` (patch-T) still says "only nearby". The text to put in
+(description, 95330-95339 in race order): "Summons a borrowed <mount>. Only in <zones>, while you are bringing it
+back to the stables." with the zones Elwynn Forest; Durotar and Orgrimmar; Dun Morogh; Teldrassil and Darnassus;
+Tirisfal Glades; Mulgore; Dun Morogh; Durotar; Eversong Woods and Silvermoon City; Azuremyst Isle and the Exodar.
+The items' own description already names the zones.
