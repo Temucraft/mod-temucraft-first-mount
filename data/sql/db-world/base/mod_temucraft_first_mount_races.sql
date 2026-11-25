@@ -118,7 +118,7 @@ DELETE FROM `temucraft_first_mount_race` WHERE `Race` NOT IN (SELECT DISTINCT `r
 -- ------------------------------------------------------------------------------------------------------------------
 
 -- The Dracthyr ground drakes: spells (copies of the borrowed Black Stallion, without its zone and quest limits,
--- spell_area only limits 95330-95339) and items (copies of the Black Stallion Bridle). Only added when
+-- spell_area only limits 95330-95339) and items (copies of the Black Stallion Bridle, usable by the Dracthyr only). Only added when
 -- @DracthyrDrakes is 1; the deletes always run, so 0 also removes them.
 DELETE FROM `spell_dbc` WHERE `ID` IN (@BlueDrakeSpell, @RedDrakeSpell);
 DROP TEMPORARY TABLE IF EXISTS `tmp_temucraft_drake_spell`;
@@ -136,7 +136,7 @@ DELETE FROM `item_template` WHERE `entry` IN (@BlueDrakeItem, @RedDrakeItem);
 DROP TEMPORARY TABLE IF EXISTS `tmp_temucraft_drake_item`;
 CREATE TEMPORARY TABLE `tmp_temucraft_drake_item` SELECT * FROM `item_template` WHERE `entry` = @DrakeTemplateItem;
 UPDATE `tmp_temucraft_drake_item` SET `entry` = @BlueDrakeItem, `name` = 'Reins of the Blue Ground Drake', `displayid` = @DrakeItemDisplay,
-    `spellid_2` = @BlueDrakeSpell, `AllowableRace` = -1, `description` = 'A young drake that keeps to the ground. It carries Dracthyr gladly.';
+    `spellid_2` = @BlueDrakeSpell, `AllowableRace` = (1 << (@AllianceDracthyr - 1)) | (1 << (@HordeDracthyr - 1)), `description` = 'A young drake that keeps to the ground. It carries Dracthyr gladly.';
 INSERT INTO `item_template` SELECT * FROM `tmp_temucraft_drake_item` WHERE @DracthyrDrakes = 1;
 UPDATE `tmp_temucraft_drake_item` SET `entry` = @RedDrakeItem, `name` = 'Reins of the Red Ground Drake', `spellid_2` = @RedDrakeSpell;
 INSERT INTO `item_template` SELECT * FROM `tmp_temucraft_drake_item` WHERE @DracthyrDrakes = 1;
