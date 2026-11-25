@@ -235,20 +235,12 @@ namespace
             return;
         for (uint32 drake : settings.drakeItems)
         {
-            // the reins teach the drake (spell 2 of the item): a drake already learned is unlearned too
-            bool learned = false;
-            if (ItemTemplate const* proto = sObjectMgr->GetItemTemplate(drake))
-                if (uint32 spell = proto->Spells[1].SpellId)
-                    if (player->HasSpell(spell))
-                    {
-                        player->removeSpell(spell, SPEC_MASK_ALL, false);
-                        learned = true;
-                    }
+            // Only unused reins are swapped. A drake already learned stays: mod-temucraft-account-wide teaches an
+            // account's mounts to all its characters, so unlearning it here would only see it taught again.
             uint32 count = player->GetItemCount(drake, true);
-            if (!count && !learned)
+            if (!count)
                 continue;
-            if (count)
-                player->DestroyItemCount(drake, count, true, false);
+            player->DestroyItemCount(drake, count, true, false);
             if (uint32 replacement = HomeReplacement(player))
                 if (!player->HasItemCount(replacement, 1, true))
                     GiveItem(player, replacement);
